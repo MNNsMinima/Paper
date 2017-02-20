@@ -12,7 +12,7 @@ def get_dataset(name, split='train', transform=None,
     train = (split == 'train')
     root = os.path.join(datasets_path, name)
     if name == 'cifar10_whitened':
-        x = load_lua('/home/ehoffer/Datasets/Cifar10/cifar10_whitened.t7')
+        x = load_lua('/media/SSD/Datasets/cifar10/cifar10_whitened.t7')
         if train:
             return dataset.TensorDataset(
                 [x['trainData']['data'],  (x['trainData']['labels']-5.5).sign()])

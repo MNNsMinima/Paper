@@ -63,12 +63,9 @@ parser.add_argument('-e', '--evaluate', type=str, metavar='FILE',
 
 def input_minimum(self, input, output):
     abs_vals = input[0].data.abs()
-    zeros = abs_vals.lt(1e-38).float().sum(0)[0]
-    # self.min_vals = getattr(self, 'min_vals', input[0].data[0,
-    # :].clone().fill_(999.))
+    zeros = abs_vals.lt(numeric_float_limit).float().sum(0)[0]
     self.zeros = getattr(self, 'zeros', input[0].data[0, :].clone().zero_())
     self.zeros.add_(zeros)
-    # self.min_vals = torch.min(self.min_vals, abs_vals.min(0)[0])
     if hasattr(self, 'min_vals'):
         self.min_vals = torch.cat([self.min_vals, abs_vals])
     else:
@@ -82,8 +79,9 @@ def input_minimum(self, input, output):
 
 
 def main():
-    global args, best_prec1
+    global args, best_prec1, numeric_float_limit
     best_prec1 = 0
+    numeric_float_limit = 1e-38
     args = parser.parse_args()
 
     if args.evaluate:
@@ -223,22 +221,17 @@ def main():
                      'Validation Prec@1 {val_prec1:.3f} \t'
                      .format(epoch + 1, train_loss=train_loss, val_loss=val_loss,
                              train_prec1=train_prec1, val_prec1=val_prec1))
-        # z = {'zeros_activation_%s' % i: model.relu.zeros[
-        #     i] for i in range(model.relu.zeros.size(0))}
-        # z2 = {'min_val_%s' % i: model.relu.min_vals[
-        # i] for i in range(model.relu.min_vals.size(0))}
-        # print(zip(range(model.relu.min_vals.size(0)), range(model.relu.min_vals.size(1))))
-        z = {'activation_%s_min_%s' % (k, i): math.log(max(model.relu.min_vals[i, k], 1e-38))
+
+        z = {'activation_%s_min_%s' % (k, i): math.log(max(model.relu.min_vals[i, k], numeric_float_limit))
              for i in range(model.relu.min_vals.size(0))
              for k in range(model.relu.min_vals.size(1))}
 
-        # z = dict(z.items() + z2.items())
         mean_lr = torch.Tensor([p['lr']
                                 for p in optimizer.param_groups]).mean()
         results.add(epoch=epoch + 1, train_loss=train_loss, val_loss=val_loss,
                     training=100. - train_prec1, validation=100 - val_prec1, learning_rate=mean_lr,
-                    relu_input_min=math.log(max(model.relu.min_input, 1e-38)), num_zeros=model.relu.zeros.sum(),
-                    log_training=math.log(max(100 - train_prec1, 1e-38)), **z)
+                    relu_input_min=math.log(max(model.relu.min_input, numeric_float_limit)), num_zeros=model.relu.zeros.sum(),
+                    log_training=math.log(max(100 - train_prec1, numeric_float_limit)), **z)
         results.plot(x='epoch', y=['training', 'validation'],
                      title='Error', ylabel='error %')
         results.plot(x='epoch', y=['training'],
@@ -253,11 +246,6 @@ def main():
                      title='number of zeros (epoch)', ylabel='value')
         results.plot(x='epoch', y=['train_loss', 'val_loss'],
                      title='Loss', ylabel='loss')
-        # for k in range(model.relu.zeros.size(0)):
-        # results.plot(x='epoch', y=['zeros_feat_%s' % k],
-        #  title='zeros num', ylabel='num')
-        # results.plot(x='epoch', y=['min_val_%s' % k],
-        #  title='minimum val at input', ylabel='num')
         for k in range(model.relu.min_vals.size(1)):
             ys = ['activation_%s_min_%s' %
                   (k, i) for i in range(model.relu.min_vals.size(0))]
